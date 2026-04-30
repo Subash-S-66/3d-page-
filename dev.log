@@ -1,0 +1,21 @@
+
+> portfolio@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+
+ ✓ Starting...
+ ✓ Ready in 1780ms
+ ○ Compiling / ...
+ ✓ Compiled / in 16.3s (1703 modules)
+ GET / 200 in 17706ms
+ ✓ Compiled in 1605ms (834 modules)
+ GET / 200 in 43ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 882ms (1665 modules)
+ GET /ambient.mp3 404 in 1027ms
+ GET /ambient.mp3 404 in 29ms
+ GET / 200 in 250ms
+ GET /ambient.mp3 404 in 36ms
+ GET /ambient.mp3 404 in 30ms
