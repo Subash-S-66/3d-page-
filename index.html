@@ -523,7 +523,11 @@
         .wheel-svg {
             width: 100%;
             height: 100%;
-            transform: rotate(-90deg); /* Start from top */
+            /* transform is now applied inline by JS for spinning */
+            cursor: grab;
+        }
+        .wheel-svg:active {
+            cursor: grabbing;
         }
         .slice-path {
             fill: var(--primary-color);
@@ -1513,6 +1517,94 @@
 
         // We'll generate paths
         let activeSlice = null;
+
+        // Spin Logic
+        let currentRotation = -90; // SVG starts rotated -90 in CSS
+        let isDraggingWheel = false;
+        let lastAngle = 0;
+        let wheelVelocity = 0;
+        let wheelAnimationId;
+
+        // Apply initial rotation inline to override CSS (so we can smoothly update it)
+        wheelSvg.style.transform = `rotate(${currentRotation}deg)`;
+
+        // Calculate angle of pointer relative to center
+        function getAngle(e) {
+            const rect = wheelSvg.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            // Handle touch or mouse
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            const dx = clientX - centerX;
+            const dy = clientY - centerY;
+            return Math.atan2(dy, dx) * (180 / Math.PI);
+        }
+
+        function startSpin(e) {
+            // Only start spin if clicking on the SVG generally, but let slices handle clicks
+            // We use standard drag logic
+            isDraggingWheel = true;
+            lastAngle = getAngle(e);
+            wheelVelocity = 0;
+            cancelAnimationFrame(wheelAnimationId);
+            wheelSvg.style.cursor = 'grabbing';
+            // Disable transitions during drag for immediate response
+            document.querySelectorAll('.slice-path, .slice-text').forEach(el => el.style.transition = 'none');
+            // But we actually only rotate the whole SVG
+            wheelSvg.style.transition = 'none';
+        }
+
+        function doSpin(e) {
+            if (!isDraggingWheel) return;
+            // Prevent scrolling on touch
+            if (e.touches && e.cancelable) e.preventDefault();
+
+            const newAngle = getAngle(e);
+            // Calculate difference, handle wrap-around (-180 to 180)
+            let diff = newAngle - lastAngle;
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+
+            currentRotation += diff;
+            wheelVelocity = diff; // record velocity for inertia
+
+            wheelSvg.style.transform = `rotate(${currentRotation}deg)`;
+            lastAngle = newAngle;
+        }
+
+        function endSpin() {
+            if (!isDraggingWheel) return;
+            isDraggingWheel = false;
+            wheelSvg.style.cursor = 'default';
+            // Re-enable slice transitions
+            document.querySelectorAll('.slice-path, .slice-text').forEach(el => el.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)');
+
+            // Start inertia loop
+            applyInertia();
+        }
+
+        function applyInertia() {
+            if (Math.abs(wheelVelocity) > 0.1) {
+                currentRotation += wheelVelocity;
+                wheelVelocity *= 0.95; // friction
+                wheelSvg.style.transform = `rotate(${currentRotation}deg)`;
+                wheelAnimationId = requestAnimationFrame(applyInertia);
+            }
+        }
+
+        // Mouse events
+        wheelSvg.addEventListener('mousedown', startSpin);
+        window.addEventListener('mousemove', doSpin, { passive: false });
+        window.addEventListener('mouseup', endSpin);
+
+        // Touch events
+        wheelSvg.addEventListener('touchstart', startSpin, { passive: false });
+        window.addEventListener('touchmove', doSpin, { passive: false });
+        window.addEventListener('touchend', endSpin);
+
 
         servicesData.forEach((service, index) => {
             const startAngle = index * angleStep + gapOffset;
