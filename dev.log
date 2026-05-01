@@ -25,3 +25,21 @@
 
  ✓ Starting...
  ✓ Ready in 4s
+ ○ Compiling / ...
+ ✓ Compiled / in 15.5s (1739 modules)
+ GET / 200 in 16585ms
+ ✓ Compiled in 1152ms (852 modules)
+ ○ Compiling /_not-found ...
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ✓ Compiled /_not-found in 6.9s (1701 modules)
+ GET /ambient.mp3 404 in 7489ms
+ GET / 200 in 820ms
+ GET /ambient.mp3 404 in 33ms
+ GET /ambient.mp3 404 in 31ms
+ ✓ Compiled in 721ms (1679 modules)
+ GET / 200 in 336ms
+ GET /ambient.mp3 404 in 40ms
+ GET /ambient.mp3 404 in 26ms
+ GET / 200 in 26ms
+ GET /ambient.mp3 404 in 42ms
+ GET /ambient.mp3 404 in 22ms

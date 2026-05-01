@@ -2,7 +2,7 @@
 
 import { useRef, useState, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
+import { Html, Float, PerformanceMonitor } from '@react-three/drei';
 import * as THREE from 'three';
 
 const SLICES_DATA = [
@@ -16,13 +16,14 @@ const SLICES_DATA = [
   { id: 7, label: 'Contact', color: '#F7931E' }
 ];
 
-function DiscSlice({
+function OrbitalNode({
   index,
   data,
   hoveredSlice,
   setHoveredSlice,
   activeSlice,
-  onClickSlice
+  onClickSlice,
+  totalNodes
 }: {
   index: number;
   data: { label: string, color: string };
@@ -30,95 +31,143 @@ function DiscSlice({
   activeSlice: number | null;
   setHoveredSlice: (id: number | null) => void;
   onClickSlice: (id: number) => void;
+  totalNodes: number;
 }) {
-  const groupRef = useRef<THREE.Group>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
   const isHovered = hoveredSlice === index;
   const isActive = activeSlice === index;
 
-  const angleStep = (Math.PI * 2) / 8;
-  const startAngle = index * angleStep;
-  const endAngle = (index + 1) * angleStep;
+  // Base position on an orbit
+  const angle = (index / totalNodes) * Math.PI * 2;
+  const radius = 3.5;
+  const baseX = Math.cos(angle) * radius;
+  const baseY = Math.sin(angle) * radius;
 
-  const shape = useMemo(() => {
-    const s = new THREE.Shape();
-    s.moveTo(0, 0);
-    s.arc(0, 0, 3, startAngle, endAngle, false);
-    s.lineTo(0, 0);
-    return s;
-  }, [startAngle, endAngle]);
-
-  const extrudeSettings = { depth: 0.2, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.05, bevelThickness: 0.05 };
+  // Memoize geometry/material config
+  const materialParams = useMemo(() => ({
+    color: data.color,
+    emissive: data.color,
+    emissiveIntensity: isHovered || isActive ? 2 : 0.5,
+    metalness: 0.8,
+    roughness: 0.1,
+    transparent: true,
+    opacity: 0.9,
+    wireframe: !isHovered && !isActive
+  }), [data.color, isHovered, isActive]);
 
   useFrame(() => {
-    if (groupRef.current) {
+    if (meshRef.current) {
       if (isActive) {
-        // Active state (clicked): expand forward significantly and scale
-        groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, 2, 0.05);
-        groupRef.current.scale.setScalar(THREE.MathUtils.lerp(groupRef.current.scale.x, 1.5, 0.05));
+        // Move towards camera and scale up
+        meshRef.current.position.x = THREE.MathUtils.lerp(meshRef.current.position.x, 0, 0.05);
+        meshRef.current.position.y = THREE.MathUtils.lerp(meshRef.current.position.y, 0, 0.05);
+        meshRef.current.position.z = THREE.MathUtils.lerp(meshRef.current.position.z, 2, 0.05);
+        meshRef.current.scale.setScalar(THREE.MathUtils.lerp(meshRef.current.scale.x, 2, 0.05));
       } else {
-        // Normal / Hover state
-        const targetZ = isHovered ? 0.5 : 0;
-        const targetScale = isHovered ? 1.05 : 1;
+        // Return to orbit position
+        meshRef.current.position.x = THREE.MathUtils.lerp(meshRef.current.position.x, baseX, 0.05);
+        meshRef.current.position.y = THREE.MathUtils.lerp(meshRef.current.position.y, baseY, 0.05);
 
-        groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, targetZ, 0.1);
-        groupRef.current.scale.setScalar(THREE.MathUtils.lerp(groupRef.current.scale.x, targetScale, 0.1));
+        const targetZ = isHovered ? 0.5 : 0;
+        const targetScale = isHovered ? 1.5 : 1;
+
+        meshRef.current.position.z = THREE.MathUtils.lerp(meshRef.current.position.z, targetZ, 0.1);
+        meshRef.current.scale.setScalar(THREE.MathUtils.lerp(meshRef.current.scale.x, targetScale, 0.1));
       }
+
+      // Independent spinning for the crystal
+      meshRef.current.rotation.x += 0.01;
+      meshRef.current.rotation.y += 0.02;
     }
   });
 
   return (
-    <group
-      ref={groupRef}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        if (activeSlice === null) {
-          setHoveredSlice(index);
-          document.body.style.cursor = 'pointer';
-        }
-      }}
-      onPointerOut={() => {
-        if (activeSlice === null) {
-          setHoveredSlice(null);
-          document.body.style.cursor = 'auto';
-        }
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (activeSlice === null) {
-          onClickSlice(index);
-          document.body.style.cursor = 'auto';
-        }
-      }}
-    >
-      <mesh>
-        <extrudeGeometry args={[shape, extrudeSettings]} />
+    <group>
+      <Float speed={2} rotationIntensity={isHovered ? 0 : 1} floatIntensity={isHovered ? 0 : 2}>
+        <mesh
+          ref={meshRef}
+          position={[baseX, baseY, 0]}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            if (activeSlice === null) {
+              setHoveredSlice(index);
+              document.body.style.cursor = 'pointer';
+            }
+          }}
+          onPointerOut={() => {
+            if (activeSlice === null) {
+              setHoveredSlice(null);
+              document.body.style.cursor = 'auto';
+            }
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (activeSlice === null) {
+              onClickSlice(index);
+              document.body.style.cursor = 'auto';
+            }
+          }}
+        >
+          <octahedronGeometry args={[0.5, 0]} />
+          <meshStandardMaterial {...materialParams} />
+
+          <Html
+            position={[0, -0.8, 0]}
+            center
+            style={{
+              pointerEvents: 'none',
+              transition: 'opacity 0.3s, transform 0.3s',
+              opacity: isHovered || isActive ? 1 : 0.2,
+              transform: isHovered ? 'scale(1.2)' : 'scale(1)'
+            }}
+          >
+            <div
+              className="font-display font-bold text-white tracking-widest uppercase drop-shadow-md whitespace-nowrap"
+              style={{ textShadow: `0 0 15px ${data.color}` }}
+            >
+              {data.label}
+            </div>
+          </Html>
+        </mesh>
+      </Float>
+    </group>
+  );
+}
+
+function CentralCore() {
+  const coreRef = useRef<THREE.Mesh>(null);
+  const ringRef = useRef<THREE.Mesh>(null);
+
+  useFrame((state) => {
+    if (coreRef.current && ringRef.current) {
+      coreRef.current.rotation.y = state.clock.elapsedTime * 0.5;
+      coreRef.current.rotation.x = state.clock.elapsedTime * 0.2;
+
+      ringRef.current.rotation.z = -state.clock.elapsedTime * 0.3;
+      ringRef.current.rotation.x = Math.PI / 2 + Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
+      ringRef.current.rotation.y = Math.cos(state.clock.elapsedTime * 0.5) * 0.1;
+    }
+  });
+
+  return (
+    <group>
+      {/* Glowing Sphere */}
+      <mesh ref={coreRef}>
+        <sphereGeometry args={[0.6, 32, 32]} />
         <meshStandardMaterial
-          color={isHovered || isActive ? data.color : '#1A1A24'}
-          metalness={0.8}
-          roughness={0.2}
-          emissive={isHovered || isActive ? data.color : '#000000'}
-          emissiveIntensity={isHovered || isActive ? 0.5 : 0}
+          color="#0A0A0F"
+          emissive="#6EE7F7"
+          emissiveIntensity={2}
+          metalness={0.9}
+          roughness={0.1}
         />
       </mesh>
 
-      {/* Label HTML overlay */}
-      <Html
-        position={[
-          Math.cos(startAngle + angleStep/2) * 2,
-          Math.sin(startAngle + angleStep/2) * 2,
-          0.3
-        ]}
-        center
-        distanceFactor={10}
-        style={{ pointerEvents: 'none', transition: 'opacity 0.3s', opacity: isHovered || isActive ? 1 : 0.4 }}
-      >
-        <div
-          className="font-display font-bold text-white tracking-widest uppercase drop-shadow-md whitespace-nowrap"
-          style={{ textShadow: isHovered || isActive ? `0 0 10px ${data.color}` : 'none' }}
-        >
-          {data.label}
-        </div>
-      </Html>
+      {/* Orbiting Ring */}
+      <mesh ref={ringRef}>
+        <torusGeometry args={[1.2, 0.02, 16, 100]} />
+        <meshStandardMaterial color="#A855F7" emissive="#A855F7" emissiveIntensity={4} />
+      </mesh>
     </group>
   );
 }
@@ -127,20 +176,20 @@ function SceneControls({ activeSlice }: { activeSlice: number | null }) {
   const { camera } = useThree();
 
   useFrame(() => {
-    // Camera zoom logic when a slice is active
     if (activeSlice !== null) {
-      camera.position.z = THREE.MathUtils.lerp(camera.position.z, 2, 0.02);
+      camera.position.z = THREE.MathUtils.lerp(camera.position.z, 3, 0.02);
       camera.position.y = THREE.MathUtils.lerp(camera.position.y, 0, 0.02);
     } else {
-      camera.position.z = THREE.MathUtils.lerp(camera.position.z, 8, 0.05);
-      camera.position.y = THREE.MathUtils.lerp(camera.position.y, -5, 0.05);
+      camera.position.z = THREE.MathUtils.lerp(camera.position.z, 10, 0.05);
+      camera.position.y = THREE.MathUtils.lerp(camera.position.y, -2, 0.05);
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, 0, 0.05);
     }
   });
 
   return null;
 }
 
-function DiscContent({
+function OrbitalSystem({
   onSliceSelect,
   activeSlice,
   setActiveSlice,
@@ -152,23 +201,25 @@ function DiscContent({
   explode: boolean
 }) {
   const [hoveredSlice, setHoveredSlice] = useState<number | null>(null);
-  const discRef = useRef<THREE.Group>(null);
+  const systemRef = useRef<THREE.Group>(null);
 
-  useFrame(() => {
-    if (discRef.current) {
+  useFrame((state) => {
+    if (systemRef.current) {
       if (explode) {
-        // Supernova explosion easter egg (wild spin and scale out)
-        discRef.current.rotation.z += 0.5;
-        discRef.current.scale.multiplyScalar(1.05);
+        systemRef.current.rotation.z += 0.2;
+        systemRef.current.scale.multiplyScalar(1.02);
       } else if (activeSlice !== null) {
-        // Rotate disc so the selected slice faces forward
-        const targetRotation = - (activeSlice * (Math.PI * 2) / 8) - (Math.PI / 8) + Math.PI/2; // rough adjustment to center
-        discRef.current.rotation.z = THREE.MathUtils.lerp(discRef.current.rotation.z, targetRotation, 0.05);
-        discRef.current.rotation.x = THREE.MathUtils.lerp(discRef.current.rotation.x, 0, 0.05); // flatten
+        // Rotate system so the selected node is front and center roughly
+        const targetRotation = - (activeSlice * (Math.PI * 2) / SLICES_DATA.length) - Math.PI/2;
+        systemRef.current.rotation.z = THREE.MathUtils.lerp(systemRef.current.rotation.z, targetRotation, 0.05);
+        systemRef.current.rotation.x = THREE.MathUtils.lerp(systemRef.current.rotation.x, 0, 0.05);
       } else {
-        // Idle slow rotation
-        discRef.current.rotation.z -= 0.002;
-        discRef.current.rotation.x = THREE.MathUtils.lerp(discRef.current.rotation.x, 0.4, 0.05);
+        // Idle System rotation. Stop if a node is hovered.
+        if (hoveredSlice === null) {
+          systemRef.current.rotation.z -= 0.002;
+        }
+        systemRef.current.rotation.x = THREE.MathUtils.lerp(systemRef.current.rotation.x, 0.4, 0.05);
+        systemRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
       }
     }
   });
@@ -181,16 +232,19 @@ function DiscContent({
   return (
     <>
       <ambientLight intensity={0.5} />
-      <pointLight position={[10, 10, 10]} intensity={1} />
-      <spotLight position={[0, 0, 10]} angle={0.3} penumbra={1} intensity={2} color="#6EE7F7" />
+      <pointLight position={[0, 0, 0]} intensity={2} color="#ffffff" />
+      <spotLight position={[0, 0, 10]} angle={0.5} penumbra={1} intensity={2} color="#6EE7F7" />
 
       <SceneControls activeSlice={activeSlice} />
 
-      <group ref={discRef} rotation={[0.4, 0, 0]}>
+      <group ref={systemRef}>
+        {activeSlice === null && <CentralCore />}
+
         {SLICES_DATA.map((slice, i) => (
-          <DiscSlice
+          <OrbitalNode
             key={slice.id}
             index={i}
+            totalNodes={SLICES_DATA.length}
             data={slice}
             hoveredSlice={hoveredSlice}
             activeSlice={activeSlice}
@@ -198,16 +252,6 @@ function DiscContent({
             onClickSlice={handleSliceClick}
           />
         ))}
-
-        {/* Center Core */}
-        <mesh position={[0, 0, 0.1]} rotation={[Math.PI/2, 0, 0]}>
-          <cylinderGeometry args={[0.8, 0.8, 0.3, 32]} />
-          <meshStandardMaterial color="#0A0A0F" metalness={0.9} roughness={0.1} />
-        </mesh>
-        <mesh position={[0, 0, 0.3]}>
-          <circleGeometry args={[0.5, 32]} />
-          <meshBasicMaterial color="#ffffff" />
-        </mesh>
       </group>
     </>
   );
@@ -215,12 +259,13 @@ function DiscContent({
 
 export default function HeroDisc({ onSliceSelect, activeSlice, setActiveSlice }: { onSliceSelect: (id: number) => void, activeSlice: number | null, setActiveSlice: (id: number | null) => void }) {
   const [explode, setExplode] = useState(false);
+  const [dpr, setDpr] = useState(1);
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const handlePointerDown = () => {
     holdTimerRef.current = setTimeout(() => {
       setExplode(true);
-    }, 2000); // 2 second long press for supernova
+    }, 2000);
   };
 
   const handlePointerUp = () => {
@@ -237,8 +282,9 @@ export default function HeroDisc({ onSliceSelect, activeSlice, setActiveSlice }:
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
       >
-        <Canvas camera={{ position: [0, -5, 8], fov: 45 }}>
-          <DiscContent
+        <Canvas camera={{ position: [0, -2, 10], fov: 45 }} dpr={dpr}>
+          <PerformanceMonitor onIncline={() => setDpr(2)} onDecline={() => setDpr(1)} />
+          <OrbitalSystem
             onSliceSelect={onSliceSelect}
             activeSlice={activeSlice}
             setActiveSlice={setActiveSlice}

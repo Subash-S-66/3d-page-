@@ -2,6 +2,7 @@
 
 import { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { PerformanceMonitor } from '@react-three/drei';
 import * as THREE from 'three';
 
 const vertexShader = `
@@ -60,11 +61,11 @@ void main() {
 
   float t = uTime * 0.2;
 
+  // Simplified noise for performance (only 2 layers instead of 3)
   float n1 = snoise(st * 2.0 + t);
   float n2 = snoise(st * 4.0 - t * 0.5);
-  float n3 = snoise(st * 8.0 + t * 0.2);
 
-  float noiseVal = n1 * 0.5 + n2 * 0.25 + n3 * 0.125;
+  float noiseVal = n1 * 0.6 + n2 * 0.4;
 
   vec3 color = mix(uColor1, uColor2, noiseVal + 0.5);
 
@@ -81,14 +82,24 @@ const NebulaShader = () => {
   const [mouse, setMouse] = useState({ x: 0.5, y: 0.5 });
 
   useEffect(() => {
+    let animationFrameId: number;
+
     const handleMouseMove = (e: MouseEvent) => {
-      setMouse({
-        x: e.clientX / window.innerWidth,
-        y: 1.0 - e.clientY / window.innerHeight,
+      // Throttle mouse updates via rAF for performance
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(() => {
+        setMouse({
+          x: e.clientX / window.innerWidth,
+          y: 1.0 - e.clientY / window.innerHeight,
+        });
       });
     };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      cancelAnimationFrame(animationFrameId);
+    };
   }, []);
 
   const uniforms = useMemo(
@@ -96,8 +107,8 @@ const NebulaShader = () => {
       uTime: { value: 0 },
       uResolution: { value: new THREE.Vector2(size.width, size.height) },
       uMouse: { value: new THREE.Vector2(0.5, 0.5) },
-      uColor1: { value: new THREE.Color('#0A0A0F') }, // Deep void black
-      uColor2: { value: new THREE.Color('#1A1A2E') }, // Slightly lighter void for contrast
+      uColor1: { value: new THREE.Color('#0A0A0F') },
+      uColor2: { value: new THREE.Color('#1A1A2E') },
     }),
     [size.width, size.height]
   );
@@ -106,7 +117,6 @@ const NebulaShader = () => {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
       materialRef.current.uniforms.uResolution.value.set(size.width, size.height);
-      // Smoothly interpolate mouse for warp effect
       materialRef.current.uniforms.uMouse.value.lerp(new THREE.Vector2(mouse.x, mouse.y), 0.05);
     }
   });
@@ -125,9 +135,10 @@ const NebulaShader = () => {
   );
 };
 
-const Stars = () => {
+const Stars = ({ isLowPerf }: { isLowPerf: boolean }) => {
   const starsRef = useRef<THREE.Points>(null);
-  const starCount = 2000;
+  // Dynamically reduce star count on low performance devices
+  const starCount = isLowPerf ? 500 : 2000;
 
   const [positions, scales] = useMemo(() => {
     const positions = new Float32Array(starCount * 3);
@@ -135,7 +146,7 @@ const Stars = () => {
     for (let i = 0; i < starCount; i++) {
       positions[i * 3] = (Math.random() - 0.5) * 20;
       positions[i * 3 + 1] = (Math.random() - 0.5) * 20;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 10 - 5; // pushed back
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 10 - 5;
       scales[i] = Math.random();
     }
     return [positions, scales];
@@ -177,11 +188,18 @@ const Stars = () => {
 };
 
 export default function Background() {
+  const [dpr, setDpr] = useState(1);
+  const [isLowPerf, setIsLowPerf] = useState(false);
+
   return (
     <div className="fixed inset-0 z-[-1] bg-background">
-      <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 2]}>
+      <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={dpr}>
+        <PerformanceMonitor
+          onIncline={() => { setDpr(2); setIsLowPerf(false); }}
+          onDecline={() => { setDpr(1); setIsLowPerf(true); }}
+        />
         <NebulaShader />
-        <Stars />
+        <Stars isLowPerf={isLowPerf} />
       </Canvas>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Background from "@/components/Background";
 import Cursor from "@/components/Cursor";
 import Loader from "@/components/Loader";
@@ -26,20 +26,17 @@ export default function Home() {
     const handleKey = (e: KeyboardEvent) => {
       keyBuffer += e.key;
 
-      // Keep buffer manageable
       if (keyBuffer.length > 50) keyBuffer = keyBuffer.slice(-50);
 
-      // Konami Check
       if (keyBuffer.includes(konamiCode)) {
         setRetroMode(true);
-        setTimeout(() => setRetroMode(false), 10000); // 10s retro mode
+        setTimeout(() => setRetroMode(false), 10000);
         keyBuffer = "";
       }
 
-      // SKS Check
       if (keyBuffer.toLowerCase().includes(sksCode)) {
         setSksShake(true);
-        setTimeout(() => setSksShake(false), 2000); // Shake for 2s
+        setTimeout(() => setSksShake(false), 2000);
         keyBuffer = "";
       }
     };
@@ -65,16 +62,26 @@ export default function Home() {
         </button>
       )}
 
-      {/* Hero Disc is always present, acts as the navigation hub */}
+      {/* Hero Navigation Hub */}
       <div className={`transition-opacity duration-1000 ${isLoading ? 'opacity-0' : 'opacity-100'} ${activeSlice !== null ? 'opacity-30' : 'opacity-100'}`}>
-        <HeroDisc onSliceSelect={setActiveSlice} activeSlice={activeSlice} setActiveSlice={setActiveSlice} />
+        <Suspense fallback={null}>
+          <HeroDisc onSliceSelect={setActiveSlice} activeSlice={activeSlice} setActiveSlice={setActiveSlice} />
+        </Suspense>
       </div>
 
-      {/* Slices Content (Rendered based on activeSlice) */}
-      <Skills isActive={activeSlice === 0} />
-      <Projects isActive={activeSlice === 1} />
-      <Experience isActive={activeSlice === 2} />
-      <Contact isActive={activeSlice === 7} />
+      {/* Slices Content */}
+      <Suspense fallback={null}>
+        <Skills isActive={activeSlice === 0} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <Projects isActive={activeSlice === 1} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <Experience isActive={activeSlice === 2} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <Contact isActive={activeSlice === 7} />
+      </Suspense>
 
       {/* Fallback for un-implemented slices in this demo */}
       {[3,4,5,6].includes(activeSlice as number) && (
@@ -83,7 +90,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Global CSS for Easter Eggs */}
       <style dangerouslySetInnerHTML={{__html: `
         .retro-mode {
           filter: sepia(100%) hue-rotate(90deg) saturate(300%);
