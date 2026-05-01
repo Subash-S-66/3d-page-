@@ -19,3 +19,9 @@
  GET / 200 in 250ms
  GET /ambient.mp3 404 in 36ms
  GET /ambient.mp3 404 in 30ms
+ ⚠ Found a change in next.config.mjs. Restarting the server to apply the changes...
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+
+ ✓ Starting...
+ ✓ Ready in 4s
