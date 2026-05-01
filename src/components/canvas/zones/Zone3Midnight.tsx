@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useMemo } from 'react'
+import { useRef, useState, useMemo, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Text } from '@react-three/drei'
 import * as THREE from 'three'
@@ -65,7 +65,6 @@ function Shipwreck({ position, rotation, companyName, role }: { position: [numbe
       <Text
         position={[0, 0, 0.76]}
         fontSize={0.3}
-        font="https://fonts.gstatic.com/s/fraunces/v31/6NUu8FxcPKMOIQbOw5ko7iQ-Bw.woff2"
         color={hovered ? "#ffffff" : "#666666"}
         anchorX="center"
         anchorY="middle"
@@ -76,7 +75,6 @@ function Shipwreck({ position, rotation, companyName, role }: { position: [numbe
       <Text
         position={[0, -0.4, 0.76]}
         fontSize={0.15}
-        font="https://fonts.gstatic.com/s/satoshi/v2/Satoshi-Regular.woff2"
         color={hovered ? "#aaddff" : "#444444"}
         anchorX="center"
         anchorY="middle"
@@ -132,6 +130,12 @@ function CursorSpotlight() {
 }
 
 export default function Zone3Midnight() {
+    const [mounted, setMounted] = useState(false)
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+    if (!mounted) return null
+
   return (
     <group>
       {/* Dark ambient base so things aren't completely invisible without cursor */}

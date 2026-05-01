@@ -1,12 +1,17 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Text, Float } from '@react-three/drei'
 import * as THREE from 'three'
 
 export default function Zone0Surface() {
   const waterRef = useRef<THREE.Mesh>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Create a custom water material using a basic shader
   const waterMaterial = new THREE.ShaderMaterial({
@@ -120,6 +125,8 @@ export default function Zone0Surface() {
     }
   })
 
+  if (!mounted) return null
+
   return (
     <group>
       {/* Water Surface above camera */}
@@ -138,7 +145,6 @@ export default function Zone0Surface() {
         <Text
           position={[0, 0, -2]}
           fontSize={1.5}
-          font="https://fonts.gstatic.com/s/fraunces/v31/6NUu8FxcPKMOIQbOw5ko7iQ-Bw.woff2"
           color="white"
           anchorX="center"
           anchorY="middle"
@@ -155,7 +161,6 @@ export default function Zone0Surface() {
         <Text
           position={[0, -1.2, -2]}
           fontSize={0.2}
-          font="https://fonts.gstatic.com/s/satoshi/v2/Satoshi-Regular.woff2"
           color="#aaddff"
           anchorX="center"
           anchorY="middle"

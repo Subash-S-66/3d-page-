@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import { useStore } from '@/store/useStore'
 import * as THREE from 'three'
@@ -18,6 +18,11 @@ const TOTAL_DEPTH = -100
 export default function MainScene() {
   const { camera, scene } = useThree()
   const scrollProgress = useStore((state) => state.scrollProgress)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+      setMounted(true)
+  }, [])
 
   // Base fog that deepens as we go down
   useEffect(() => {
@@ -43,6 +48,8 @@ export default function MainScene() {
       (scene.fog as THREE.FogExp2).color.copy(fogColor)
     }
   })
+
+  if (!mounted) return null
 
   return (
     <>
